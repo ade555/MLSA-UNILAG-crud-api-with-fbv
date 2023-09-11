@@ -1,9 +1,11 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from django.db.models import Q
 
 from .models import Task
 from .serializers import TaskSerializer
+from .paginators import TaskPaginator
 
 # pagination next class
 # slugs
@@ -16,9 +18,24 @@ def task_list_view(request):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     elif request.method == 'GET':
+        paginator = TaskPaginator()
         tasks = Task.objects.all()
-        serializer = TaskSerializer(tasks, many=True)
-        return Response(serializer.data)
+
+        # perform search
+        query = request.GET.get('q', '')
+
+        # if query:
+        #     tasks = Task.objects.filter(task_name=query)
+        
+        if query:
+            tasks = tasks.filter(Q(task_name__icontains=query))
+
+        result = paginator.paginate_queryset(tasks, request)
+        serializer = TaskSerializer(result, many=True)
+        # return Response(serializer.data)
+        return paginator.get_paginated_response(serializer.data)
+
+
 
 
 @api_view(["GET", "PUT", "DELETE"])
